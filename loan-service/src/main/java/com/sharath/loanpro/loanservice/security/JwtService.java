@@ -3,6 +3,7 @@ package com.sharath.loanpro.loanservice.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
@@ -10,11 +11,12 @@ import java.security.Key;
 @Service
 public class JwtService {
 
-    private static final String SECRET_KEY =
-            "mysecretkeymysecretkeymysecretkeymysecretkey";
+    // Must match auth-service's jwt.secret. Dev-only default; override with JWT_SECRET.
+    @Value("${jwt.secret:mysecretkeymysecretkeymysecretkeymysecretkey}")
+    private String secretKey;
 
     private Key getSignKey() {
-        return Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
+        return Keys.hmacShaKeyFor(secretKey.getBytes());
     }
 
     private Claims extractAllClaims(String token) {

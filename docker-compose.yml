@@ -1,0 +1,103 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: loanpro-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+    ports:
+      - "3306:3306"
+    volumes:
+      - loanpro-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  service-registry:
+    build: ./service-registry
+    container_name: loanpro-service-registry
+    ports:
+      - "8761:8761"
+
+  config-server:
+    build: ./config-server
+    container_name: loanpro-config-server
+    environment:
+      EUREKA_URL: http://service-registry:8761/eureka/
+    ports:
+      - "8888:8888"
+    depends_on:
+      - service-registry
+
+  auth-service:
+    build: ./auth-service
+    container_name: loanpro-auth-service
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      JWT_SECRET: ${JWT_SECRET:-mysecretkeymysecretkeymysecretkeymysecretkey}
+      EUREKA_URL: http://service-registry:8761/eureka/
+      CONFIG_SERVER_URL: http://config-server:8888
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      service-registry:
+        condition: service_started
+      config-server:
+        condition: service_started
+
+  loan-service:
+    build: ./loan-service
+    container_name: loanpro-loan-service
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      JWT_SECRET: ${JWT_SECRET:-mysecretkeymysecretkeymysecretkeymysecretkey}
+      EUREKA_URL: http://service-registry:8761/eureka/
+      CONFIG_SERVER_URL: http://config-server:8888
+    ports:
+      - "8082:8082"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      service-registry:
+        condition: service_started
+      config-server:
+        condition: service_started
+
+  decision-service:
+    build: ./decision-service
+    container_name: loanpro-decision-service
+    environment:
+      EUREKA_URL: http://service-registry:8761/eureka/
+      CONFIG_SERVER_URL: http://config-server:8888
+    ports:
+      - "8083:8083"
+    depends_on:
+      - service-registry
+      - config-server
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: loanpro-api-gateway
+    environment:
+      EUREKA_URL: http://service-registry:8761/eureka/
+      CONFIG_SERVER_URL: http://config-server:8888
+    ports:
+      - "8080:8080"
+    depends_on:
+      - service-registry
+      - config-server
+      - auth-service
+      - loan-service
+      - decision-service
+
+volumes:
+  loanpro-mysql-data:
